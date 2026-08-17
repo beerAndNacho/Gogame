@@ -63,3 +63,12 @@ test('AI blocks an immediate enemy win', () => {
   const move=chooseOmokAiMove(state,'hard',O_WHITE);
   assert.ok([omokIndex(state.size,3,7),omokIndex(state.size,8,7)].includes(move));
 });
+
+test('extreme AI blocks an immediate enemy win', () => {
+  const state=createOmokGame('freestyle');
+  for(let x=4;x<=7;x+=1) place(state,x,7,O_BLACK);
+  state.current=O_WHITE;
+  const move=chooseOmokAiMove(state,'extreme',O_WHITE);
+  assert.ok([omokIndex(state.size,3,7),omokIndex(state.size,8,7)].includes(move));
+  assert.equal(analyzeOmokMove(state,move,O_WHITE).legal,true);
+});
