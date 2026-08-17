@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#171914" />
+  <meta name="description" content="브라우저에서 바로 즐기는 감각적인 바둑 게임. 9×9부터 AI와 한 판 두고 힌트와 계가까지 즐겨보세요." />
+  <title>GOGAME · 한 판 두자</title>
+  <link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="GOGAME 홈">
+        <span class="brand-stone" aria-hidden="true"></span>
+        <span><b>GOGAME</b><small>한 판 두자</small></span>
+      </a>
+      <div class="top-actions">
+        <span class="save-state" id="saveState">자동 저장</span>
+        <button class="icon-button" id="soundButton" type="button" aria-label="소리 켜기/끄기">♪</button>
+      </div>
+    </header>
+
+    <main class="game-layout">
+      <section class="board-column">
+        <div class="game-status" aria-live="polite">
+          <div class="turn-badge"><i id="turnStone"></i><span id="turnText">흑 차례</span></div>
+          <div class="move-meta"><span id="moveNumber">0수</span><span id="lastMoveText">첫 수를 두세요</span></div>
+        </div>
+
+        <div class="board-frame" id="boardFrame">
+          <canvas id="board" aria-label="바둑판" role="img"></canvas>
+          <div class="thinking" id="thinking" hidden><span></span><b>AI가 수를 읽는 중</b></div>
+        </div>
+
+        <div class="mobile-actions">
+          <button id="undoButtonMobile" type="button">↶ 무르기</button>
+          <button id="hintButtonMobile" type="button">✦ 추천수</button>
+          <button id="passButtonMobile" type="button">패스</button>
+        </div>
+      </section>
+
+      <aside class="side-panel">
+        <section class="panel setup-panel">
+          <div class="panel-title"><span>대국 설정</span><small>원할 때 새 판 시작</small></div>
+          <div class="segmented" id="modeSegment">
+            <button type="button" data-mode="ai" class="active">AI 대국</button>
+            <button type="button" data-mode="pvp">2인 대국</button>
+          </div>
+
+          <div class="settings-grid">
+            <label><span>판 크기</span><select id="boardSize"><option value="9">9 × 9 · 빠른 한 판</option><option value="13">13 × 13 · 중간</option><option value="19">19 × 19 · 정규</option></select></label>
+            <label id="colorField"><span>내 돌</span><select id="playerColor"><option value="1">흑 · 먼저 둠</option><option value="2">백 · AI가 먼저</option></select></label>
+            <label id="difficultyField"><span>AI 난이도</span><select id="difficulty"><option value="easy">입문 · 느긋하게</option><option value="normal" selected>보통 · 제법 둠</option><option value="hard">도전 · 한 수 더 봄</option></select></label>
+          </div>
+          <button class="primary-button" id="newGameButton" type="button"><span>새 대국 시작</span><b>→</b></button>
+        </section>
+
+        <section class="panel players-panel">
+          <div class="player-row" id="blackPlayer">
+            <span class="stone black"></span>
+            <div><b>흑</b><small id="blackName">나</small></div>
+            <strong><span id="blackCaptures">0</span><small>잡음</small></strong>
+          </div>
+          <div class="divider"></div>
+          <div class="player-row" id="whitePlayer">
+            <span class="stone white"></span>
+            <div><b>백</b><small id="whiteName">AI · 보통</small></div>
+            <strong><span id="whiteCaptures">0</span><small>잡음</small></strong>
+          </div>
+          <div class="komi-row"><span>덤</span><b>백 +6.5</b></div>
+        </section>
+
+        <section class="panel controls-panel">
+          <div class="control-grid">
+            <button id="undoButton" type="button"><span>↶</span><b>무르기</b><small>U</small></button>
+            <button id="hintButton" type="button"><span>✦</span><b>추천수</b><small>H</small></button>
+            <button id="passButton" type="button"><span>○</span><b>패스</b><small>P</small></button>
+            <button id="scoreButton" type="button"><span>計</span><b>계가</b><small>S</small></button>
+          </div>
+          <label class="helper-toggle"><input id="helperToggle" type="checkbox" checked /><span><b>초보자 도우미</b><small>단수 돌과 추천 위치를 표시합니다.</small></span></label>
+        </section>
+
+        <section class="coach-card" id="coachCard">
+          <span class="coach-label">BOARD COACH</span>
+          <p id="coachText">모서리와 변부터 천천히 집을 만들어 보세요. 위험한 돌은 붉은 테두리로 알려드릴게요.</p>
+        </section>
+      </aside>
+    </main>
+
+    <section class="rules-strip">
+      <article><b>잡기</b><span>상대 돌의 활로를 모두 막으면 돌을 잡습니다.</span></article>
+      <article><b>패</b><span>같은 모양을 즉시 반복하는 되따내기는 금지됩니다.</span></article>
+      <article><b>종료</b><span>서로 연속 두 번 패스하면 자동으로 계가합니다.</span></article>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog class="score-dialog" id="scoreDialog">
+    <form method="dialog">
+      <button class="dialog-close" value="close" aria-label="닫기">×</button>
+      <span class="score-kicker" id="scoreKicker">현재 계가 예상</span>
+      <h2 id="scoreHeadline">흑이 앞서고 있어요</h2>
+      <div class="score-cards">
+        <article><span class="stone black"></span><small>흑</small><b id="blackScore">0</b><p id="blackScoreDetail"></p></article>
+        <article><span class="stone white"></span><small>백</small><b id="whiteScore">6.5</b><p id="whiteScoreDetail"></p></article>
+      </div>
+      <p class="score-note">중국식 면적 계가(살아있는 돌 + 둘러싼 빈집)를 사용합니다. 첫 버전에서는 죽은 돌 지정 단계가 없어 실제 심판 계가와 차이가 날 수 있습니다.</p>
+      <div class="dialog-actions">
+        <button value="close" class="secondary-button">계속 두기</button>
+        <button value="close" id="rematchButton" class="primary-button">새 판 두기</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="./src/app.js"></script>
+</body>
+</html>
