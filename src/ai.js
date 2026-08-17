@@ -45,11 +45,11 @@ function candidateScore(state, index, color) {
   clone.current = color;
   const result = playMove(clone, index);
   if (result.ok) {
-    let endangered = 0;
+    let support = 0;
     for (const next of neighbors(clone.size, index)) {
-      if (clone.board[next] === color) endangered += 0.15;
+      if (clone.board[next] === color) support += 0.15;
     }
-    score += endangered;
+    score += support;
   }
 
   return score;
@@ -72,6 +72,38 @@ function opponentThreatAfter(state, index, color) {
   return Math.max(...replies.map((reply) => reply.score));
 }
 
+function extremeCandidateValue(state, candidate, color) {
+  const next = cloneGame(state);
+  next.current = color;
+  if (!playMove(next, candidate.index).ok) return -Infinity;
+
+  const enemy = opponent(color);
+  const replyLimit = state.size === 19 ? 4 : state.size === 13 ? 5 : 6;
+  const replies = topCandidates(next, enemy, replyLimit);
+  if (!replies.length) return candidate.score + 12;
+
+  let worstDanger = -Infinity;
+  for (const reply of replies) {
+    let danger = reply.score;
+
+    // 9x9/13x13에서는 상대의 최선 응수 뒤 내 재응수까지 한 단계 더 본다.
+    if (state.size <= 13) {
+      const afterReply = cloneGame(next);
+      afterReply.current = enemy;
+      if (playMove(afterReply, reply.index).ok) {
+        const followLimit = state.size === 9 ? 6 : 4;
+        const follow = topCandidates(afterReply, color, followLimit)[0];
+        if (follow) danger -= follow.score * 0.48;
+      }
+    }
+
+    worstDanger = Math.max(worstDanger, danger);
+  }
+
+  // 극강은 랜덤성을 없애고 상대 최선 응수에 가장 덜 흔들리는 수를 고른다.
+  return candidate.score - worstDanger * 0.82;
+}
+
 export function chooseAiMove(state, difficulty = 'normal', color = state.current) {
   const moves = legalMoves(state, color);
   if (!moves.length) return null;
@@ -80,6 +112,21 @@ export function chooseAiMove(state, difficulty = 'normal', color = state.current
     const candidates = topCandidates(state, color, Math.min(18, moves.length));
     const pool = candidates.slice(0, Math.max(4, Math.ceil(candidates.length * 0.65)));
     return pool[Math.floor(Math.random() * pool.length)]?.index ?? moves[0];
+  }
+
+  if (difficulty === 'extreme') {
+    const limit = state.size === 19 ? 10 : state.size === 13 ? 14 : 18;
+    const candidates = topCandidates(state, color, limit);
+    let bestMove = candidates[0]?.index ?? moves[0];
+    let bestValue = -Infinity;
+    for (const candidate of candidates) {
+      const value = extremeCandidateValue(state, candidate, color);
+      if (value > bestValue) {
+        bestValue = value;
+        bestMove = candidate.index;
+      }
+    }
+    return bestMove;
   }
 
   const candidates = topCandidates(state, color, difficulty === 'hard' ? 14 : 10);
@@ -110,7 +157,10 @@ export function recommendMove(state, color = state.current) {
 }
 
 export function difficultyLabel(value) {
-  return value === 'easy' ? '입문' : value === 'hard' ? '도전' : '보통';
+  if (value === 'easy') return '입문';
+  if (value === 'hard') return '도전';
+  if (value === 'extreme') return '극강';
+  return '보통';
 }
 
 export const COLORS = { BLACK, WHITE, EMPTY };
