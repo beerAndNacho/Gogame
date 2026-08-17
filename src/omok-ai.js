@@ -21,10 +21,11 @@ function proximity(state,index){
 }
 
 function rawNearby(state){
-  if(state.moveNumber===0) return [Math.floor(state.board.length/2)];
+  const occupied=[];
+  for(let i=0;i<state.board.length;i+=1) if(state.board[i]!==O_EMPTY) occupied.push(i);
+  if(!occupied.length) return [Math.floor(state.board.length/2)];
   const result=new Set();
-  for(let i=0;i<state.board.length;i+=1){
-    if(state.board[i]===O_EMPTY) continue;
+  for(const i of occupied){
     const {x,y}=omokPoint(state.size,i);
     for(let dy=-2;dy<=2;dy+=1) for(let dx=-2;dx<=2;dx+=1){
       if(!dx&&!dy) continue;
@@ -38,8 +39,7 @@ function rawNearby(state){
 }
 
 function candidatePool(state,color){
-  const nearby=rawNearby(state);
-  return nearby.filter(index=>analyzeOmokMove(state,index,color).legal);
+  return rawNearby(state).filter(index=>analyzeOmokMove(state,index,color).legal);
 }
 
 function shapeValue(board,size,index,color){
