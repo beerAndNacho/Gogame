@@ -93,3 +93,14 @@ test('AI는 현재 판에서 합법수만 선택한다', () => {
   assert.equal(Number.isInteger(move), true);
   assert.equal(analyzeMove(game, move, WHITE).legal, true);
 });
+
+test('극강 바둑 AI도 합법수만 선택한다', () => {
+  const game = createGame(9);
+  playMove(game, indexOf(9, 4, 4));
+  playMove(game, indexOf(9, 2, 2));
+  playMove(game, indexOf(9, 6, 6));
+  game.current = WHITE;
+  const move = chooseAiMove(game, 'extreme', WHITE);
+  assert.equal(Number.isInteger(move), true);
+  assert.equal(analyzeMove(game, move, WHITE).legal, true);
+});
