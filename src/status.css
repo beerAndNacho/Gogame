@@ -1,3 +1,4 @@
+[hidden]{display:none!important}
 .thinking[hidden]{display:none!important}
 .thinking{
   position:absolute;
@@ -30,7 +31,50 @@
   font-weight:800;
   white-space:nowrap;
 }
+.game-switch{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:7px;
+  max-width:520px;
+  margin:0 0 20px;
+  padding:5px;
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:16px;
+  background:rgba(13,16,12,.72);
+}
+.game-switch button{
+  display:grid;
+  gap:3px;
+  padding:11px 15px;
+  text-align:left;
+  border:1px solid transparent;
+  border-radius:12px;
+  background:transparent;
+  color:#7f887b;
+}
+.game-switch button b{font-size:13px}
+.game-switch button small{font-size:9px;color:#626a5f}
+.game-switch button.active{
+  border-color:rgba(216,179,108,.28);
+  background:linear-gradient(145deg,#292d24,#1c211a);
+  color:#f0eadb;
+  box-shadow:0 6px 18px rgba(0,0,0,.18);
+}
+.game-switch button.active small{color:#a9956c}
+.winner-stone{
+  width:72px;
+  height:72px;
+  margin:8px 0 15px;
+  border-radius:50%;
+  background:radial-gradient(circle at 32% 27%,#4c5048,#080908 68%);
+  box-shadow:inset -7px -8px 14px rgba(0,0,0,.34),0 10px 28px rgba(0,0,0,.28);
+}
+.winner-stone.white{background:radial-gradient(circle at 31% 27%,#fffdf5,#c8c6bd 74%);border:1px solid rgba(0,0,0,.16)}
+.omok-dialog h2{margin-bottom:8px}
+.omok-result-text{margin:0 0 22px;color:#8f978b;font-size:12px;line-height:1.7}
 @media(max-width:600px){
   .thinking{right:10px;bottom:10px;padding:7px 9px;gap:7px}
   .thinking b{font-size:9px}
+  .game-switch{max-width:none;margin-bottom:14px}
+  .game-switch button{padding:10px 12px}
 }
