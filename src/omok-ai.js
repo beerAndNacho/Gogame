@@ -1,9 +1,7 @@
 import {
-  O_BLACK, O_EMPTY, O_WHITE, analyzeOmokMove, cloneOmok, legalOmokMoves,
-  lineLengths, omokOpponent, omokPoint, playOmokMove, winningOmokMoves,
+  O_BLACK, O_EMPTY, O_WHITE, analyzeOmokMove, cloneOmok,
+  lineLengths, omokOpponent, omokPoint, playOmokMove,
 } from './omok-engine.js';
-
-const DIRS = [[1,0],[0,1],[1,1],[1,-1]];
 
 function inBoard(size,x,y){return x>=0&&y>=0&&x<size&&y<size;}
 function idx(size,x,y){return y*size+x;}
@@ -20,6 +18,28 @@ function proximity(state,index){
   const center=(state.size-1)/2;
   score += Math.max(0,8-(Math.abs(x-center)+Math.abs(y-center)))*.25;
   return score;
+}
+
+function rawNearby(state){
+  if(state.moveNumber===0) return [Math.floor(state.board.length/2)];
+  const result=new Set();
+  for(let i=0;i<state.board.length;i+=1){
+    if(state.board[i]===O_EMPTY) continue;
+    const {x,y}=omokPoint(state.size,i);
+    for(let dy=-2;dy<=2;dy+=1) for(let dx=-2;dx<=2;dx+=1){
+      if(!dx&&!dy) continue;
+      const nx=x+dx,ny=y+dy;
+      if(!inBoard(state.size,nx,ny)) continue;
+      const point=idx(state.size,nx,ny);
+      if(state.board[point]===O_EMPTY) result.add(point);
+    }
+  }
+  return [...result];
+}
+
+function candidatePool(state,color){
+  const nearby=rawNearby(state);
+  return nearby.filter(index=>analyzeOmokMove(state,index,color).legal);
 }
 
 function shapeValue(board,size,index,color){
@@ -51,26 +71,23 @@ function candidateValue(state,index,color){
   return score;
 }
 
-function nearbyMoves(state,color){
-  const all=legalOmokMoves(state,color);
-  if(state.moveNumber===0) return [Math.floor(state.board.length/2)];
-  const filtered=all.filter((index)=>proximity(state,index)>0);
-  return filtered.length?filtered:all;
-}
-
 function bestCandidates(state,color,limit=16){
-  return nearbyMoves(state,color)
+  return candidatePool(state,color)
     .map(index=>({index,score:candidateValue(state,index,color)}))
     .sort((a,b)=>b.score-a.score)
     .slice(0,limit);
 }
 
+function immediateWins(state,color){
+  return candidatePool(state,color).filter(index=>analyzeOmokMove(state,index,color).win);
+}
+
 export function chooseOmokAiMove(state,difficulty='normal',color=state.current){
-  const wins=winningOmokMoves({...state,current:color},color);
+  const wins=immediateWins({...state,current:color},color);
   if(wins.length) return wins[0];
 
   const enemy=omokOpponent(color);
-  const enemyWins=winningOmokMoves({...state,current:enemy},enemy);
+  const enemyWins=immediateWins({...state,current:enemy},enemy);
   if(enemyWins.length){
     const legalBlock=enemyWins.find(index=>analyzeOmokMove(state,index,color).legal);
     if(legalBlock!==undefined) return legalBlock;
