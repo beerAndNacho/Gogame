@@ -20,14 +20,14 @@ function proximity(state,index){
   return score;
 }
 
-function rawNearby(state){
+function rawNearby(state,radius=2){
   const occupied=[];
   for(let i=0;i<state.board.length;i+=1) if(state.board[i]!==O_EMPTY) occupied.push(i);
   if(!occupied.length) return [Math.floor(state.board.length/2)];
   const result=new Set();
   for(const i of occupied){
     const {x,y}=omokPoint(state.size,i);
-    for(let dy=-2;dy<=2;dy+=1) for(let dx=-2;dx<=2;dx+=1){
+    for(let dy=-radius;dy<=radius;dy+=1) for(let dx=-radius;dx<=radius;dx+=1){
       if(!dx&&!dy) continue;
       const nx=x+dx,ny=y+dy;
       if(!inBoard(state.size,nx,ny)) continue;
@@ -38,8 +38,8 @@ function rawNearby(state){
   return [...result];
 }
 
-function candidatePool(state,color){
-  return rawNearby(state).filter(index=>analyzeOmokMove(state,index,color).legal);
+function candidatePool(state,color,radius=2){
+  return rawNearby(state,radius).filter(index=>analyzeOmokMove(state,index,color).legal);
 }
 
 function shapeValue(board,size,index,color){
@@ -71,15 +71,59 @@ function candidateValue(state,index,color){
   return score;
 }
 
-function bestCandidates(state,color,limit=16){
-  return candidatePool(state,color)
+function bestCandidates(state,color,limit=16,radius=2){
+  return candidatePool(state,color,radius)
     .map(index=>({index,score:candidateValue(state,index,color)}))
     .sort((a,b)=>b.score-a.score)
     .slice(0,limit);
 }
 
 function immediateWins(state,color){
-  return candidatePool(state,color).filter(index=>analyzeOmokMove(state,index,color).win);
+  return candidatePool(state,color,2).filter(index=>analyzeOmokMove(state,index,color).win);
+}
+
+function extremeMoveValue(state,candidate,color){
+  const enemy=omokOpponent(color);
+  const next=cloneOmok(state); next.current=color;
+  const played=playOmokMove(next,candidate.index);
+  if(!played.ok) return -Infinity;
+  if(next.gameOver&&next.winner===color) return 9_000_000;
+
+  const ownNextWins=immediateWins(next,color);
+  const enemyWins=immediateWins(next,enemy);
+
+  // 다음 차례에 이기는 곳이 두 군데 이상 생기면 사실상 강제승리 포크다.
+  if(ownNextWins.length>=2&&enemyWins.length===0) return 7_000_000+candidate.score;
+  if(enemyWins.length>=2) return -7_000_000;
+  if(enemyWins.length===1) return -2_500_000+candidate.score;
+
+  const replies=bestCandidates(next,enemy,10,2);
+  if(!replies.length) return candidate.score+ownNextWins.length*200_000;
+
+  let worstDanger=-Infinity;
+  for(const reply of replies){
+    const afterReply=cloneOmok(next); afterReply.current=enemy;
+    const replyResult=playOmokMove(afterReply,reply.index);
+    if(!replyResult.ok) continue;
+    if(afterReply.gameOver&&afterReply.winner===enemy){worstDanger=Math.max(worstDanger,8_000_000);continue;}
+
+    const ourWins=immediateWins(afterReply,color);
+    if(ourWins.length){
+      worstDanger=Math.max(worstDanger,-1_500_000);
+      continue;
+    }
+
+    const enemyFutureWins=immediateWins(afterReply,enemy);
+    let danger=reply.score;
+    if(enemyFutureWins.length>=2) danger+=3_000_000;
+    else if(enemyFutureWins.length===1) danger+=650_000;
+
+    const follow=bestCandidates(afterReply,color,8,2)[0];
+    if(follow) danger-=follow.score*.62;
+    worstDanger=Math.max(worstDanger,danger);
+  }
+
+  return candidate.score+ownNextWins.length*220_000-worstDanger*.9;
 }
 
 export function chooseOmokAiMove(state,difficulty='normal',color=state.current){
@@ -91,6 +135,28 @@ export function chooseOmokAiMove(state,difficulty='normal',color=state.current){
   if(enemyWins.length){
     const legalBlock=enemyWins.find(index=>analyzeOmokMove(state,index,color).legal);
     if(legalBlock!==undefined) return legalBlock;
+  }
+
+  if(difficulty==='extreme'){
+    const candidates=bestCandidates(state,color,24,3);
+    if(!candidates.length) return null;
+
+    // 먼저 강제승리 포크를 찾는다.
+    for(const candidate of candidates){
+      const next=cloneOmok(state); next.current=color;
+      if(!playOmokMove(next,candidate.index).ok) continue;
+      if(next.gameOver&&next.winner===color) return candidate.index;
+      const ownNextWins=immediateWins(next,color);
+      const opponentImmediate=immediateWins(next,enemy);
+      if(ownNextWins.length>=2&&opponentImmediate.length===0) return candidate.index;
+    }
+
+    let bestMove=candidates[0].index,bestValue=-Infinity;
+    for(const candidate of candidates.slice(0,16)){
+      const value=extremeMoveValue(state,candidate,color);
+      if(value>bestValue){bestValue=value;bestMove=candidate.index;}
+    }
+    return bestMove;
   }
 
   const candidates=bestCandidates(state,color,difficulty==='hard'?18:difficulty==='easy'?12:15);
@@ -122,5 +188,10 @@ export function recommendOmokMove(state,color=state.current){
   return bestCandidates(state,color,1)[0]?.index ?? null;
 }
 
-export function omokDifficultyLabel(value){return value==='easy'?'입문':value==='hard'?'도전':'보통';}
+export function omokDifficultyLabel(value){
+  if(value==='easy') return '입문';
+  if(value==='hard') return '도전';
+  if(value==='extreme') return '극강';
+  return '보통';
+}
 export const OMOK_COLORS={O_BLACK,O_WHITE,O_EMPTY};
